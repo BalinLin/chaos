@@ -1,0 +1,67 @@
+# Copyright 2021 Chaos Mesh Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Workflow
+metadata:
+  name: workflow-parallel-stress
+spec:
+  entry: the-entry
+  templates:
+    - name: the-entry
+      templateType: Parallel
+      deadline: 100s
+      children:
+        - workflow-stress-cpu
+        - workflow-stress-memory
+    - name: workflow-stress-cpu
+      templateType: Schedule
+      deadline: 70s
+      schedule:
+        schedule: "@every 20s"
+        historyLimit: 2
+        concurrencyPolicy: Allow
+        type: StressChaos
+        stressChaos:
+          mode: one
+          duration: '30s'
+          selector:
+            labelSelectors:
+              'chaosTool': 'chaos-mesh'
+          stressors:
+            cpu:
+              workers: 1
+              load: 80 # The final sum of CPU load is workers * load.
+              options: ["--cpu 1", "--timeout 600"]
+    - name: workflow-stress-memory
+      templateType: Schedule
+      deadline: 70s
+      schedule:
+        schedule: "@every 20s"
+        historyLimit: 2
+        concurrencyPolicy: Allow
+        type: StressChaos
+        stressChaos:
+          mode: one
+          duration: '30s'
+          selector:
+            labelSelectors:
+              'chaosTool': 'chaos-mesh'
+          stressors:
+            memory:
+              workers: 1
+              size: 400Mi
+              # Sources request priority, bigger value means higher probability to be killed when oom.
+              # Range [-1000, 1000], [OOM_SCORE_ADJ_MIN, OOM_SCORE_ADJ_MAX]
+              oomScoreAdj: -1000

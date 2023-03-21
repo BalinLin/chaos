@@ -1,0 +1,38 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: docker-cats-ingress
+  namespace: docker-cats
+
+spec:
+  rules:
+  - host: baby.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: docker-cats-service-baby
+            port:
+              number: 8080
+  - host: green.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: docker-cats-service-green
+            port:
+              number: 8080
+  - host: dark.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: /
+        backend:
+          service:
+            name: docker-cats-service-dark
+            port:
+              number: 8080

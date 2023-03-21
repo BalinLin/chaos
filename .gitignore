@@ -1,0 +1,4 @@
+fis/.terraform/*
+fis/terraform.tfstate*
+fis/*.plan
+.DS_Store

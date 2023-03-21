@@ -1,0 +1,288 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: v1.0 FIS experiment template
+###############################################################
+# Parameters
+###############################################################
+Parameters:
+  eksArn:
+    Type: String
+    ConstraintDescription: EKS Cluster ARN
+    Default: ''
+  nodegroupArn:
+    Type: String
+    ConstraintDescription: Nodegroup ARN
+    Default: ''
+  rdsArn:
+    Type: String
+    ConstraintDescription: RDS ARN
+    Default: ''
+  chaosMeshApiVersion:
+    Type: String
+    ConstraintDescription: Chaos Mesh API version
+    Default: 'chaos-mesh.org/v1alpha1'
+  chaosMeshNamespace:
+    Type: String
+    ConstraintDescription: Chaos Mesh Namespace
+    Default: 'vodd-int'
+  chaosMeshKindPodChaos:
+    Type: String
+    ConstraintDescription: Chaos Mesh Kind
+    Default: 'PodChaos'
+  chaosMeshKindStressChaos:
+    Type: String
+    ConstraintDescription: Chaos Mesh Kind
+    Default: 'StressChaos'
+  chaosMeshSpecKillPod:
+    Type: String
+    ConstraintDescription: Chaos Mesh Spec
+    Default: '{
+        "selector":{
+          "namespaces":["vodd-int"],
+          "labelSelectors":{"app":"app-ags"}
+          },
+        "mode":"one",
+        "action":"pod-kill"
+        }'
+  chaosMeshSpecCPUStressPod:
+    Type: String
+    ConstraintDescription: Chaos Mesh Spec
+    Default: '{
+        "selector":{
+          "namespaces":["vodd-int"],
+          "labelSelectors":{"app":"app-aus"}
+          },
+          "mode":"one",
+          "stressors": {
+            "cpu":{
+              "workers":1,
+              "load":80
+            }
+          },
+          "duration":"1m"
+        }'
+  chaosMeshMaxDurationPT1M:
+    Type: String
+    ConstraintDescription: Chaos Mesh Duration
+    Default: 'PT1M'
+  instanceTerminationPercentage:
+    Type: String
+    ConstraintDescription: Chaos Mesh Duration
+    Default: '50'
+  nameTag:
+    Type: String
+    ConstraintDescription: Name Tag String
+    Default: 'Testing FIS'
+
+###############################################################
+# Resources
+###############################################################
+Resources:
+###############################################################
+# FIS Experiment Template
+###############################################################
+  nsiAwsFisExperimentTemplateKillPod:
+    Type: 'AWS::FIS::ExperimentTemplate'
+    Properties:
+      Actions:
+        kill-pod-action:
+          ActionId: 'aws:eks:inject-kubernetes-custom-resource'
+          Parameters:
+            kubernetesApiVersion: !Ref chaosMeshApiVersion
+            kubernetesNamespace: !Ref chaosMeshNamespace
+            kubernetesKind: !Ref chaosMeshKindPodChaos
+            kubernetesSpec: !Ref chaosMeshSpecKillPod
+            maxDuration: !Ref chaosMeshMaxDurationPT1M
+          Targets:
+            Cluster: 'kill-pod-target'
+      Description: 'Kill Pod app-ags '
+      LogConfiguration:
+        CloudWatchLogsConfiguration:
+          LogGroupArn: !GetAtt 'nsiAwsFisCw.Arn'
+        LogSchemaVersion: 1
+      RoleArn: !GetAtt 'nsiAwsFisRole.Arn'
+      Targets:
+        kill-pod-target:
+          ResourceArns:
+            - !Ref eksArn
+          ResourceType: 'aws:eks:cluster'
+          SelectionMode: 'COUNT(1)'
+      StopConditions:
+      - Source: 'none'
+      Tags:
+        Name: !Ref nameTag
+  nsiAwsFisExperimentTemplateCPUStressPod:
+    Type: 'AWS::FIS::ExperimentTemplate'
+    Properties:
+      Actions:
+        cpu-stress-pod-action:
+          ActionId: 'aws:eks:inject-kubernetes-custom-resource'
+          Parameters:
+            kubernetesApiVersion: !Ref chaosMeshApiVersion
+            kubernetesNamespace: !Ref chaosMeshNamespace
+            kubernetesKind: !Ref chaosMeshKindStressChaos
+            kubernetesSpec: !Ref chaosMeshSpecCPUStressPod
+            maxDuration: !Ref chaosMeshMaxDurationPT1M
+          Targets:
+            Cluster: 'cpu-stress-pod-target'
+      Description: 'CPU Stress Pod app-aus'
+      LogConfiguration:
+        CloudWatchLogsConfiguration:
+          LogGroupArn: !GetAtt 'nsiAwsFisCw.Arn'
+        LogSchemaVersion: 1
+      RoleArn: !GetAtt 'nsiAwsFisRole.Arn'
+      Targets:
+        cpu-stress-pod-target:
+          ResourceArns:
+            - !Ref eksArn
+          ResourceType: 'aws:eks:cluster'
+          SelectionMode: 'COUNT(1)'
+      StopConditions:
+      - Source: 'none'
+      Tags:
+        Name: !Ref nameTag
+  nsiAwsFisExperimentTemplateTerminateEC2:
+    Type: 'AWS::FIS::ExperimentTemplate'
+    Properties:
+      Actions:
+        terminate-ec2-action:
+          ActionId: 'aws:eks:terminate-nodegroup-instances'
+          Parameters:
+            instanceTerminationPercentage: !Ref instanceTerminationPercentage
+          Targets:
+            Nodegroups: 'terminate-ec2-target'
+      Description: 'Terminate EC2 instances in a Nodegroup'
+      LogConfiguration:
+        CloudWatchLogsConfiguration:
+          LogGroupArn: !GetAtt 'nsiAwsFisCw.Arn'
+        LogSchemaVersion: 1
+      RoleArn: !GetAtt 'nsiAwsFisRole.Arn'
+      Targets:
+        terminate-ec2-target:
+          ResourceArns:
+            - !Ref nodegroupArn
+          ResourceType: 'aws:eks:nodegroup'
+          SelectionMode: 'COUNT(1)'
+      StopConditions:
+      - Source: 'none'
+      Tags:
+        Name: !Ref nameTag
+  nsiAwsFisExperimentTemplateRebootRDS:
+    Type: 'AWS::FIS::ExperimentTemplate'
+    Properties:
+      Actions:
+        reboot-rds-action:
+          ActionId: 'aws:rds:reboot-db-instances'
+          Parameters:
+            forceFailover: true
+          Targets:
+            DBInstances: 'reboot-rds-target'
+      Description: 'Reboot RDS instances'
+      LogConfiguration:
+        CloudWatchLogsConfiguration:
+          LogGroupArn: !GetAtt 'nsiAwsFisCw.Arn'
+        LogSchemaVersion: 1
+      RoleArn: !GetAtt 'nsiAwsFisRole.Arn'
+      Targets:
+        reboot-rds-target:
+          ResourceArns:
+            - !Ref rdsArn
+          ResourceType: 'aws:rds:db'
+          SelectionMode: 'COUNT(1)'
+      StopConditions:
+      - Source: 'none'
+      Tags:
+        Name: !Ref nameTag
+###############################################################
+# FIS IAM Role
+###############################################################
+  nsiAwsFisRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: 'fis.amazonaws.com'
+          Action: 'sts:AssumeRole'
+      Policies:
+      - PolicyName: NsiAwsFisPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Sid: AllowFISExperimentLoggingActionsCloudwatch
+            Effect: Allow
+            Action:
+            - 'logs:CreateLogDelivery'
+            - 'logs:PutResourcePolicy'
+            - 'logs:DescribeResourcePolicies'
+            - 'logs:DescribeLogGroups'
+            Resource: '*'
+          - Sid: AllowFISExperimentRoleReadOnly
+            Effect: Allow
+            Action:
+            - 'ec2:DescribeInstances'
+            - 'ecs:DescribeClusters'
+            - 'ecs:ListContainerInstances'
+            - 'eks:DescribeNodegroup'
+            - 'iam:ListRoles'
+            - 'rds:DescribeDBInstances'
+            - 'rds:DescribeDbClusters'
+            - 'ssm:ListCommands'
+            Resource: '*'
+          - Sid: AllowFISExperimentRoleEC2Actions
+            Effect: Allow
+            Action:
+            - 'ec2:RebootInstances'
+            - 'ec2:StopInstances'
+            - 'ec2:StartInstances'
+            - 'ec2:TerminateInstances'
+            Resource: !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/*'
+          - Sid: AllowFISExperimentRoleECSActions
+            Effect: Allow
+            Action:
+            - 'ecs:UpdateContainerInstancesState'
+            - 'ecs:ListContainerInstances'
+            Resource: 'arn:aws:ecs:*:*:container-instance/*'
+          - Sid: AllowFISExperimentRoleEKSActions
+            Effect: Allow
+            Action:
+            - 'ec2:TerminateInstances'
+            Resource: 'arn:aws:ec2:*:*:instance/*'
+          - Sid: AllowFISExperimentRoleFISActions
+            Effect: Allow
+            Action:
+            - 'fis:InjectApiInternalError'
+            - 'fis:InjectApiThrottleError'
+            - 'fis:InjectApiUnavailableError'
+            Resource: 'arn:*:fis:*:*:experiment/*'
+          - Sid: AllowFISExperimentRoleRDSReboot
+            Effect: Allow
+            Action:
+            - 'rds:RebootDBInstance'
+            Resource: 'arn:aws:rds:*:*:db:*'
+          - Sid: AllowFISExperimentRoleRDSFailOver
+            Effect: Allow
+            Action:
+            - 'rds:FailoverDBCluster'
+            Resource: 'arn:aws:rds:*:*:cluster:*'
+          - Sid: AllowFISExperimentRoleSSMSendCommand
+            Effect: Allow
+            Action:
+            - 'ssm:SendCommand'
+            Resource:
+            - 'arn:aws:ec2:*:*:instance/*'
+            - 'arn:aws:ssm:*:*:document/*'
+          - Sid: AllowFISExperimentRoleSSMCancelCommand
+            Effect: Allow
+            Action:
+            - 'ssm:CancelCommand'
+            Resource: '*'
+###############################################################
+# FIS CloudWatch Log Group
+###############################################################
+  nsiAwsFisCw:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: '/nsi/aws/fis/test'
+      RetentionInDays: 7

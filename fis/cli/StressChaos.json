@@ -1,0 +1,40 @@
+{
+    "tags": {
+        "Name": "PodChaos-Kill-app-ags"
+    },
+    "description": "Run ChaosMesh PodChaos to kill a pod with label app:app-ags.",
+    "actions": {
+        "Action-01": {
+            "actionId": "aws:eks:inject-kubernetes-custom-resource",
+            "parameters": {
+                "maxDuration": "PT1M",
+                "kubernetesApiVersion": "chaos-mesh.org/v1alpha1",
+                "kubernetesKind": "PodChaos",
+                "kubernetesNamespace": "{{ main_namespace }}",
+                "kubernetesSpec": "{\"selector\":{\"namespaces\":[\"{{ main_namespace }}\"],\"labelSelectors\":{\"app\":\"app-ags\"}},\"mode\":\"one\",\"action\": \"pod-kill\"}"
+            },
+            "targets": {
+                "Cluster": "Target-01"
+            }
+        }
+    },
+    "targets": {
+        "Target-01": {
+            "resourceType": "aws:eks:cluster",
+            "resourceArns": [
+                "{{ chaos_eks_arn }}"
+            ],
+            "selectionMode": "COUNT(1)"
+        }
+    },
+    "stopConditions": [{
+        "source": "none"
+    }],
+    "logConfiguration": {
+        "cloudWatchLogsConfiguration": {
+            "logGroupArn": "{{ chaos_logGroup_arn }}"
+        },
+        "logSchemaVersion": 1
+    },
+    "roleArn": "{{ chaos_role_arn }}"
+}

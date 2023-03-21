@@ -1,0 +1,42 @@
+# Ref: https://github.com/chaos-mesh/chaos-mesh/tree/master/helm/chaos-mesh
+timezone: Asia/Taipei
+
+controllerManager:
+  # If enabled, only pods in the namespace annotated with `"chaos-mesh.org/inject": "enabled"` could be injected
+  enableFilterNamespace: true
+  # targetNamespace only works with clusterScoped is false(namespace scoped mode).
+  # It means namespace which will be injected chaos
+  targetNamespace: chaos-mesh
+  # securityMode requires user to provide credentials on Chaos Dashboard, instead of using chaos-dashboard service account
+  # securityMode: false
+  securityMode: true
+
+dashboard:
+  persistentVolume:
+    # If you are using SQLite as your DB for Chaos Dashboard, it is recommended to enable persistence.
+    # If enable, the chart will create a PersistenceVolumeClaim to store its state in. If you are
+    # using a DB other than SQLite, set this to false to avoid allocating unused storage.
+    # If set to false, Chaos Mesh will use an emptyDir instead, which is ephemeral.
+    enabled: true
+
+    # If you'd like to bring your own PVC for persisting chaos event, pass the name of the
+    # created + ready PVC here. If set, this Chart will not create the default PVC.
+    # Requires server.persistentVolume.enabled: true
+    #
+    existingClaim: ""
+
+    # Chaos Dashboard data Persistent Volume size.
+    size: 8Gi
+
+    # Chaos Dashboard data Persistent Volume Storage Class.
+    # If defined, storageClassName: <storageClass>
+    storageClassName: standard
+
+    # Chaos Dashboard data Persistent Volume mount root path
+    #
+    mountPath: /data
+
+    # Subdirectory of Chaos Dashboard data Persistent Volume to mount
+    # Useful if the volume's root directory is not empty
+    #
+    subPath: ""

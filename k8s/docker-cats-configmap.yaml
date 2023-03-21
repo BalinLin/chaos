@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: docker-cats-configmap-baby
+  namespace: docker-cats
+data:
+  docker-cats-app: baby
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: docker-cats-configmap-green
+  namespace: docker-cats
+data:
+  docker-cats-app: green
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: docker-cats-configmap-dark
+  namespace: docker-cats
+data:
+  docker-cats-app: dark
